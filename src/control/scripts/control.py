@@ -5,7 +5,7 @@ from turtlesim.msg import Pose
 from geometry_msgs.msg import Twist
 from turtlesim.srv import SetPen
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     rospy.init_node("Summit_XL_Controller")
     rospy.loginfo("Summit XL Controller Started")
     # Create a publisher to send commands to the summit_xl
