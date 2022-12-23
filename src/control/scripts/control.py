@@ -15,7 +15,7 @@ if __name__ == '__main__':
     # Control the robot with WASD keys , if the key is pressed, the robot will move 
     while not rospy.is_shutdown():
         twist = Twist()
-        key = input()
+        key = input() # Get the key pressed
         if key == 'w':
             twist.linear.x = 1.0
         elif key == 's':
