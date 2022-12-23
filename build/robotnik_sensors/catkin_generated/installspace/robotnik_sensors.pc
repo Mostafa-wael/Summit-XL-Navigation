@@ -1,0 +1,8 @@
+prefix=/home/mostafa/rb/code/install
+
+Name: robotnik_sensors
+Description: Description of robotnik_sensors
+Version: 1.12.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
