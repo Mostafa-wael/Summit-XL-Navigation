@@ -5,7 +5,7 @@ from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 # import custom message sensor_out.msg
 # from sensor_out.msg import SensorOut
-
+PI = 3.1415926535897
 class Sensor:
     def __init__(self):
         # Subscribe to /robot/rear_laser/scan topic
@@ -21,12 +21,12 @@ class Sensor:
         self.odomData = Odometry()
     def rearLaserCallback(self,msg):
         self.rearLaserData = msg
-        rospy.loginfo('Rear laser data angle_min: %f', self.rearLaserData.angle_min * 180 / 3.14159265359)
-        rospy.loginfo('Rear laser data angle_max: %f', self.rearLaserData.angle_max * 180 / 3.14159265359)
+        rospy.loginfo('Rear laser data angle_min: %f', self.rearLaserData.angle_min * 180 / PI)
+        rospy.loginfo('Rear laser data angle_max: %f', self.rearLaserData.angle_max * 180 / PI)
     def frontLaserCallback(self,msg):
         self.frontLaserData = msg
-        rospy.loginfo('Front laser data angle_min: %f', self.frontLaserData.angle_min * 180 / 3.14159265359)
-        rospy.loginfo('Front laser data angle_max: %f', self.frontLaserData.angle_max * 180 / 3.14159265359)
+        rospy.loginfo('Front laser data angle_min: %f', self.frontLaserData.angle_min * 180 / PI)
+        rospy.loginfo('Front laser data angle_max: %f', self.frontLaserData.angle_max * 180 / PI)
     def odomCallback(self,msg):
         self.odomData = msg
     def combineLaserData(self):
@@ -36,24 +36,27 @@ class Sensor:
             return None
         else:
             # order doesn't matter
-            combinedLaserData.header = self.rearLaserData.header
+            combinedLaserData.header.seq = self.rearLaserData.header.seq
+            combinedLaserData.header.stamp = self.rearLaserData.header.stamp
+            combinedLaserData.header.frame_id = self.frontLaserData.header.frame_id # the problem is related to the frame id
             combinedLaserData.scan_time = self.rearLaserData.scan_time
             combinedLaserData.time_increment = self.rearLaserData.time_increment
             combinedLaserData.angle_increment = self.rearLaserData.angle_increment
             combinedLaserData.intensities = self.rearLaserData.intensities # always zero
+            combinedLaserData.range_min = self.rearLaserData.range_min
+            combinedLaserData.range_max = self.rearLaserData.range_max
             
-            combinedLaserData.range_min = min(self.rearLaserData.range_min, self.frontLaserData.range_min)
-            combinedLaserData.range_max = max(self.rearLaserData.range_max, self.frontLaserData.range_max)
 
             # order matters
-            combinedLaserData.angle_min = self.rearLaserData.angle_min + 3.14159265359
-            combinedLaserData.angle_max = self.rearLaserData.angle_max - 3.14159265359 
+            # You can add - and + PI to rotate the data
+            combinedLaserData.angle_min = self.rearLaserData.angle_min  
+            combinedLaserData.angle_max = self.rearLaserData.angle_max 
             # print the angle_min and angle_max of the front and rear laser data in degrees
             
             
             # print the angle_min and angle_max of the combined laser data in degrees
-            rospy.loginfo('Combined laser data angle_min: %f', combinedLaserData.angle_min * 180 / 3.14159265359)
-            rospy.loginfo('Combined laser data angle_max: %f', combinedLaserData.angle_max * 180 / 3.14159265359)
+            rospy.loginfo('Combined laser data angle_min: %f', combinedLaserData.angle_min * 180 / PI)
+            rospy.loginfo('Combined laser data angle_max: %f', combinedLaserData.angle_max * 180 / PI)
             
             combinedLaserData.ranges = self.rearLaserData.ranges + self.frontLaserData.ranges
             # print the len of the front and rear laser data
