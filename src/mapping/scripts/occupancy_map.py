@@ -11,13 +11,15 @@ import tf
 
 class OccupancyMap:
     def __init__(self):
-        # Subscribe to front laser topic
-        self.frontLaser = rospy.Subscriber("/robot/front_laser/scan", LaserScan, callback = self.frontLaserCallback ,queue_size=10)
+        # Subscribe to rear laser topic
+        self.rearLaser = rospy.Subscriber("/robot/rear_laser/scan", LaserScan, callback = self.rearLaserCallback ,queue_size=10)
         # Subscribe to odom topic
         self.odom = rospy.Subscriber("/robot/robotnik_base_control/odom", Odometry, callback = self.odomCallback ,queue_size=10)
         # Publish the occupancy map
         self.occupancyMap = rospy.Publisher("/occupancy_map", OccupancyGrid, queue_size=10)
-        self.frontLaserData = LaserScan()
+        self.rearLaserData = LaserScan()
+        # Set the initial position of the robot
+        self.odomData = Odometry()
         # Create an occupancy grid
         self.occupancyGrid = OccupancyGrid()
         self.occupancyGrid.header.stamp = rospy.Time.now()
@@ -30,30 +32,25 @@ class OccupancyMap:
         # Set the resolution of the occupancy grid
         self.occupancyGrid.info.resolution = 0.2
         # make the origin centered
-        self.occupancyGrid.info.origin.position.x = -5
-        self.occupancyGrid.info.origin.position.y = -5
+        self.occupancyGrid.info.origin.position.x = -10
+        self.occupancyGrid.info.origin.position.y = -10
         self.occupancyGrid.info.origin.position.z = 0
         self.occupancyGrid.info.origin.orientation.x = 0
         self.occupancyGrid.info.origin.orientation.y = 0
         self.occupancyGrid.info.origin.orientation.z = 0
         self.occupancyGrid.info.origin.orientation.w = 1
-
-
         # set the size of the occupancy grid
         self.occupancyGrid.data = [-1]* self.occupancyGrid.info.width * self.occupancyGrid.info.height
-        # Initialize the data of the occupancy grid
-        self.odomData = Odometry()
-    def frontLaserCallback(self,msg):
-        self.frontLaserData = msg
+    def rearLaserCallback(self,msg):
+        self.rearLaserData = msg
     def odomCallback(self,msg):
         self.odomData = msg
 
     def reflection_model(self):
-        if self.frontLaserData.ranges == []:
+        if self.rearLaserData.ranges == []:
             return
-        rospy.loginfo('Mourad')
         hits = [0] * self.occupancyGrid.info.width * self.occupancyGrid.info.height
-        missed= [1] * self.occupancyGrid.info.width * self.occupancyGrid.info.height
+        missed= [0] * self.occupancyGrid.info.width * self.occupancyGrid.info.height
         # Get robot position
         robotX = self.odomData.pose.pose.position.x
         robotY = self.odomData.pose.pose.position.y
@@ -71,21 +68,38 @@ class OccupancyMap:
                 angle = math.atan2(cellY - robotY, cellX - robotX)
                 # Get the angle between the robot orientation and the cell
                 angle = angle - tf.transformations.euler_from_quaternion([robotOrientation.x, robotOrientation.y, robotOrientation.z, robotOrientation.w])[2]
-                # Get the index of the cell in the laser scan data
-                index = int(angle / self.frontLaserData.angle_increment)
+                # convert the angle to degrees
+                angle_d = angle * 180 / math.pi
+                # angle should be between -135 and 135
+                if angle_d < -135:
+                    angle_d += 360
+                elif angle_d > 135:
+                    angle_d -= 360
+                # if the angle is out of range, skip the cell
+                if angle_d < -135 or angle_d > 135:
+                    continue
+                # get the index of the angle in the list
+                index = int((angle_d + 135) / 0.5)
                 # Check if the cell is in the laser scan data
-                if index < len(self.frontLaserData.ranges):
+                if index < len(self.rearLaserData.ranges) and index >= 0:
+                    laserDistance = self.rearLaserData.ranges[index]
                     # Check if the cell is in the laser scan range
-                    if self.frontLaserData.ranges[index] > distance - 0.1 and self.frontLaserData.ranges[index] < distance + 0.1:
-                        hits[i * self.occupancyGrid.info.width + j] += 1
+                    if abs(laserDistance - distance) < 0.1:
+                        hits[i * self.occupancyGrid.info.width + j] += 0.1
                     else:
-                        missed[i * self.occupancyGrid.info.width + j] += 1
+                        missed[i * self.occupancyGrid.info.width + j] += 0.1
+                else:
+                    logMsg = "index out of range. Index = " + str(index) + ", angle = " + str(angle_d)
+                    rospy.loginfo(logMsg)
+        # print the value of the hits and missed
+        print("hits = " + str(hits))
+        print("missed = " + str(missed))   
         # Update the occupancy grid data
         for i in range(self.occupancyGrid.info.width * self.occupancyGrid.info.height):
-            if hits[i] + missed[i] > 0:
-                self.occupancyGrid.data[i] = int(hits[i] * 100 / (hits[i] + missed[i]))
+            if hits[i] > 0 and  missed[i] > 0:
+                self.occupancyGrid.data[i] = int(hits[i] * 1 / (hits[i] + missed[i]))
             else:
-                self.occupancyGrid.data[i] = -1
+                self.occupancyGrid.data[i] = 0
         
         # Publish the occupancy grid
         self.occupancyMap.publish(self.occupancyGrid)
