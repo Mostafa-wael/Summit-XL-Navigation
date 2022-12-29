@@ -54,6 +54,7 @@ class OccupancyMap:
     def reflection_model(self):
         if self.rearLaserData.ranges == []:
             return
+            
         # Get robot position
         robotX = self.odomData.pose.pose.position.x
         robotY = self.odomData.pose.pose.position.y
