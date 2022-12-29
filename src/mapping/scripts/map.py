@@ -6,6 +6,7 @@ from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Pose, Point, Quaternion
 from nav_msgs.msg import Odometry
 import math
+from math import radians
 import tf
 import tf2_ros
 import numpy as np
@@ -31,9 +32,9 @@ class OccupancyMap:
         # Set the header of the occupancy grid
         self.occupancyGrid.header.frame_id = "robot_map"
         # Set the width of the occupancy grid
-        self.occupancyGrid.info.width = 100
+        self.occupancyGrid.info.width = 1000
         # Set the height of the occupancy grid
-        self.occupancyGrid.info.height = 100
+        self.occupancyGrid.info.height = 1000
         # Set the resolution of the occupancy grid
         self.occupancyGrid.info.resolution = 0.2
         # make the origin centered
@@ -80,31 +81,38 @@ class OccupancyMap:
         robotX, robotY = self.toMap(self.odomData.pose.pose.position.x, self.odomData.pose.pose.position.y)
         robotOrientation = self.odomData.pose.pose.orientation
         angles = np.arange(0, 2 * math.pi, 0.5 * math.pi / 180) 
-        angles -= tf.transformations.euler_from_quaternion([robotOrientation.x, robotOrientation.y, robotOrientation.z, robotOrientation.w])[2]
+        _,_,z  = tf.transformations.euler_from_quaternion([robotOrientation.x, robotOrientation.y, robotOrientation.z, robotOrientation.w])
         # self.hits[int(robotY) * self.occupancyGrid.info.width + int(robotX)] += 1
         # cast self.laserData.ranges to list
         ranges = list(self.laserData.ranges)
         for i in range(len(self.laserData.ranges)):
             if ranges[i] >=30 or ranges[i] <= 0.08:
                 continue
-            ranges[i] *= self.occupancyGrid.info.resolution
-            endX, endY = self.getRayEnd(robotX, robotY, angles[i], ranges[i])
+            trc = ranges[i] / self.occupancyGrid.info.resolution
+            angle = angles[i] + z + radians(180)
+            rospy.loginfo("angle: %f", rospy.rostime.Time().now().to_sec() )
+            endX, endY = self.getRayEnd(robotX, robotY, angle, trc) 
             rospy.loginfo("endX: %f, endY: %f", endX, endY)
             # if not self.isInside(endX, endY):
             #     rospy.loginfo("out of map")
             #     continue
             self.hits[int(endY) * self.occupancyGrid.info.width + int(endX)] += 1
             self.missed[int(endY) * self.occupancyGrid.info.width + int(endX)] += 1
-            dx = (endX - robotX) / ranges[i] 
-            dy = (endY - robotY) / ranges[i] 
-            xs = np.arange(robotX, endX, dx).astype(int)
-            ys = np.arange(robotY, endY, dy).astype(int)
+            dx = (endX - robotX) / trc
+            dy = (endY - robotY) / trc 
+            xs = np.arange(robotX, endX+dx, dx).astype(int)
+            ys = np.arange(robotY, endY+dy, dy).astype(int)
+            minLen = min(len(xs), len(ys))
+            xs = xs[:minLen]
+            ys = ys[:minLen]
             self.hits[ys * self.occupancyGrid.info.width + xs] += 1
+    
     
         
         self.occupancyGrid.data = (self.hits * 100 / (self.hits + self.missed)).astype(int).flatten().tolist()
         # Publish the occupancy grid
         self.occupancyMap.publish(self.occupancyGrid)
+        self.hits[:] = 0
 
         
 
