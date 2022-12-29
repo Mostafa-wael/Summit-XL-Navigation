@@ -34,6 +34,9 @@ catkin_create_pkg sensor rospy
 mkdir -p sensor/scripts
 touch sensor/scripts/sensor.py
 ```
+### How to run the Iris node
+``` bash
+roslaunch ira_laser_tools laserscan_multi_merger.launch
 ```
 ### How to create and add new messgaes
 Follow the instructions in the [ROS wiki](http://wiki.ros.org/ROS/Tutorials/CreatingMsgAndSrv)

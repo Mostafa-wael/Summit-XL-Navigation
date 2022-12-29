@@ -1,0 +1,8 @@
+prefix=/home/mostafa/rb/code/install
+
+Name: mapping
+Description: Description of mapping
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

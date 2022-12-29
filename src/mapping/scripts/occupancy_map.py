@@ -7,6 +7,7 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 from nav_msgs.msg import Odometry
 import math
 import tf
+import numpy as np
 
 
 class OccupancyMap:
@@ -41,10 +42,12 @@ class OccupancyMap:
         self.occupancyGrid.info.origin.orientation.w = 1
         # set the size of the occupancy grid
         self.occupancyGrid.data = [-1]* self.occupancyGrid.info.width * self.occupancyGrid.info.height
-        self.hits = [0] * self.occupancyGrid.info.width * self.occupancyGrid.info.height
-        self.missed= [0] * self.occupancyGrid.info.width * self.occupancyGrid.info.height
+        self.hits = [1] * self.occupancyGrid.info.width * self.occupancyGrid.info.height
+        self.missed= [1] * self.occupancyGrid.info.width * self.occupancyGrid.info.height
     def rearLaserCallback(self,msg):
         self.rearLaserData = msg
+        # trasnform the laser scan data to the map frame
+        self.rearLaserData.header.frame_id = "robot_map"
     def odomCallback(self,msg):
         self.odomData = msg
 
@@ -75,10 +78,11 @@ class OccupancyMap:
                 # if the angle is out of range, skip the cell
                 if angle_d < -135 or angle_d > 135:
                     continue
+                rotaionOffset = -270
                 # map -135 and 135 to -45 and 45
-                angle_d += 90
+                angle_d += rotaionOffset 
                 # get the index of the angle in the list
-                index = int((angle_d + 45) / 0.5)
+                index = int((angle_d + (135 - rotaionOffset)) / 0.5)
                 # Check if the cell is in the laser scan data
                 if index < len(self.rearLaserData.ranges) and index >= 0:
                     laserDistance = self.rearLaserData.ranges[index]
@@ -86,25 +90,24 @@ class OccupancyMap:
                     if abs(laserDistance - distance) < 0.1:
                         self.hits[i * self.occupancyGrid.info.width + j] += 1
                     else:
-                        self.missed[i * self.occupancyGrid.info.width + j] += 1
+                        self.missed[i * self.occupancyGrid.info.width + j] += 20
                 else:
                     logMsg = "index out of range. Index = " + str(index) + ", angle = " + str(angle_d)
                     rospy.loginfo(logMsg)
-        # print the value of the self.hits and self.missed
-        print("self.hits = " + str(self.hits))
-        print("self.missed = " + str(self.missed))   
+        # Print hits and missed
+        rospy.loginfo("hits = " + str(self.hits))
+        # rospy.loginfo("missed = " + str(self.missed))            
         # Update the occupancy grid data
         for i in range(self.occupancyGrid.info.width * self.occupancyGrid.info.height):
             if self.hits[i] > 0 and  self.missed[i] > 0:
-                self.occupancyGrid.data[i] = int(self.hits[i] * 10 / (self.hits[i] + self.missed[i]))
+                self.occupancyGrid.data[i] = int(self.hits[i] / (self.hits[i] + self.missed[i]))
             # else:
             #     self.occupancyGrid.data[i] = 0
         # if the value of the cell is less than  1/10 from the maximum value, set it to 0
         # maxVal = max(self.occupancyGrid.data)
         # for i in range(self.occupancyGrid.info.width * self.occupancyGrid.info.height):
-        #     if self.occupancyGrid.data[i]/maxVal < 0.5:
+        #     if maxVal - self.occupancyGrid.data[i]  < 1:
         #         self.occupancyGrid.data[i] = 0
-        
         # Publish the occupancy grid
         self.occupancyMap.publish(self.occupancyGrid)
 

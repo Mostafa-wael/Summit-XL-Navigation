@@ -1,0 +1,8 @@
+prefix=/home/mostafa/rb/code/devel
+
+Name: ira_laser_tools
+Description: Description of ira_laser_tools
+Version: 1.0.7
+Cflags: -I/home/mostafa/rb/code/devel/include
+Libs: -L${prefix}/lib 
+Requires: 
