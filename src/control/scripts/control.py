@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # Create a publisher to send commands to the summit_xl
     pub = rospy.Publisher("/robot/robotnik_base_control/cmd_vel", Twist, queue_size=10)
     # Define a specific rate to send commands
-    rate = rospy.Rate(4)
+    rate = rospy.Rate(50)
     key_timeout = 0.5
     # Control the robot with WASD keys , if the key is pressed, the robot will move 
     twist = Twist()
@@ -48,15 +48,14 @@ if __name__ == '__main__':
                 twist.linear.x -= 0.5
             # if a is pressed, the robot will move left and increase the angular velocity
             elif key == 'a':
-                twist.angular.z += 0.5
+                twist.angular.z += 0.2
             # if d is pressed, the robot will move right and decrease the angular velocity
             elif key == 'd':
-                twist.angular.z -= 0.5
+                twist.angular.z -= 0.2
             # else decrease the linear and angular velocity until it reaches 0
             else:
                 twist.linear.x *= 0.5
                 twist.angular.z *= 0.5
-                
             # publish the command to the robot
             pub.publish(twist)
             rate.sleep()
