@@ -42,10 +42,10 @@ if __name__ == '__main__':
         try:
             # if w is pressed, the robot will move forward and increase the linear velocity
             if key == 'w':
-                twist.linear.x += 0.5
+                twist.linear.x += 0.2
             # if s is pressed, the robot will move backward and decrease the linear velocity
             elif key == 's':
-                twist.linear.x -= 0.5
+                twist.linear.x -= 0.2
             # if a is pressed, the robot will move left and increase the angular velocity
             elif key == 'a':
                 twist.angular.z += 0.2
