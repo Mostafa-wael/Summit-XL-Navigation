@@ -31,12 +31,12 @@ class OccupancyMap:
         self.occupancyGrid.header.stamp = rospy.Time.now()
         # Set the header of the occupancy grid
         self.occupancyGrid.header.frame_id = "robot_map"
-        # Set the width of the occupancy grid
-        self.occupancyGrid.info.width = 1000
-        # Set the height of the occupancy grid
-        self.occupancyGrid.info.height = 1000
         # Set the resolution of the occupancy grid
         self.occupancyGrid.info.resolution = 0.2
+        # Set the width of the occupancy grid
+        self.occupancyGrid.info.width = int(1000 * self.occupancyGrid.info.resolution)
+        # Set the height of the occupancy grid
+        self.occupancyGrid.info.height = int(1000 * self.occupancyGrid.info.resolution)
         # make the origin centered
         # [0.030, -0.032, 0.000]
         # xo, yo, zo = self.tfBuffer.lookup_transform("robot_map", "robot_odom", rospy.Time()).transform.translation
@@ -85,39 +85,49 @@ class OccupancyMap:
         for i in range(len(self.laserData.ranges)):
             if ranges[i] >=30 or ranges[i] <= 0.08: # if the range is out of the laser range
                 continue
-            distance = ranges[i] / self.occupancyGrid.info.resolution
-            angle = angles[i] + robotOrientation + radians(180)
-            # rospy.loginfo("angle: %f", rospy.rostime.Time().now().to_sec())
-            endX, endY = self.getRayEnd(robotX, robotY, angle, distance) 
-            # rospy.loginfo("endX: %f, endY: %f", endX, endY)
-            # if self.isInsideMap(endX, endY):
-            #     rospy.loginfo("not inside map")
-            #     continue
-            index = int(endY) * self.occupancyGrid.info.width + int(endX)
-            # check if index is inside the map
-            # if abs(index) >= len(self.occupancyGrid.data):
-            #     rospy.loginfo(index)
-            #     continue
-            self.hits[index] += 1 # increment the hit counter of the end point of the ray
-            # self.missed[index] -= 1 # decrement the missed counter of the end point of the ray
-            # calculate the points between the start and end points of the ray
-            dx = (endX - robotX) / distance
-            dy = (endY - robotY) / distance 
-            xs = np.arange(robotX, endX+dx, dx).astype(int)
-            ys = np.arange(robotY, endY+dy, dy).astype(int)
-            minLen = min(len(xs), len(ys))
-            xs = xs[:minLen]
-            ys = ys[:minLen]
-            # increment the missed counter of the points between the start and end points of the ray
-            self.missed[ys * self.occupancyGrid.info.width + xs] += 1
+            try:
+                distance = ranges[i] / self.occupancyGrid.info.resolution
+                angle = angles[i] + robotOrientation + radians(180)
+                # rospy.loginfo("angle: %f", rospy.rostime.Time().now().to_sec())
+                endX, endY = self.getRayEnd(robotX, robotY, angle, distance) 
+                # rospy.loginfo("endX: %f, endY: %f", endX, endY)
+                # if self.isInsideMap(endX, endY):
+                #     rospy.loginfo("not inside map")
+                #     continue
+                index = int(endY) * self.occupancyGrid.info.width + int(endX)
+                # check if index is inside the map
+                # if abs(index) >= len(self.occupancyGrid.data):
+                #     rospy.loginfo(index)
+                #     continue
+                self.hits[index] += 1 # increment the hit counter of the end point of the ray
+                # self.missed[index] -= 1 # decrement the missed counter of the end point of the ray
+                # calculate the points between the start and end points of the ray
+                dx = (endX - robotX) / distance
+                dy = (endY - robotY) / distance 
+                xs = np.arange(robotX, endX+dx, dx).astype(int)
+                ys = np.arange(robotY, endY+dy, dy).astype(int)
+                minLen = min(len(xs), len(ys))
+                xs = xs[:minLen]
+                ys = ys[:minLen]
+                # increment the missed counter of the points between the start and end points of the ray
+                self.missed[ys * self.occupancyGrid.info.width + xs] += 1
+                # self.missed[ys * self.occupancyGrid.info.width + xs] = np.clip(self.missed[ys * self.occupancyGrid.info.width + xs], 1, 100)
+            except Exception as e:
+                rospy.loginfo(e)
+                continue
     
     
-        # rospy.loginfo(self.hits.astype(int).flatten().tolist())
-        # rospy.loginfo(self.missed.astype(int).flatten().tolist())  
+        # Map the values of hits and missed to the range [0, 100]
+        self.hits = (self.hits - np.min(self.hits)) / (np.max(self.hits) - np.min(self.hits)) * 100 + 1
+        self.missed = (self.missed - np.min(self.missed)) / (np.max(self.missed) - np.min(self.missed)) * 100 +1
         # print min and max of hits and missed
         rospy.loginfo("min hits: %f, max hits: %f", np.min(self.hits), np.max(self.hits))  
         rospy.loginfo("min missed: %f, max missed: %f", np.min(self.missed), np.max(self.missed))
-        self.occupancyGrid.data = (self.hits * 100/ (self.hits + self.missed)).astype(int).flatten().tolist()
+        prob = (self.hits / (self.hits + self.missed)) * 100
+        prob = prob.astype(int).flatten().tolist()
+        # print min and max of prob
+        rospy.loginfo("min prob: %f, max prob: %f", np.min(prob), np.max(prob))
+        self.occupancyGrid.data = [x for x in prob if x != 0]
         # Publish the occupancy grid
         self.occupancyMap.publish(self.occupancyGrid)
         # self.hits[:] = 0
