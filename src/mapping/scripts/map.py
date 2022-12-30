@@ -18,9 +18,9 @@ class OccupancyMap:
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
         # Subscribe to rear laser topic
-        self.laser = rospy.Subscriber("/scan_multi", LaserScan, callback = self.laserCallback ,queue_size=10)
+        self.laser = rospy.Subscriber("/scan_multi", LaserScan, callback = self.laserCallback ,queue_size=1)
         # Subscribe to odom topic
-        self.odom = rospy.Subscriber("/robot/robotnik_base_control/odom", Odometry, callback = self.odomCallback ,queue_size=10)
+        self.odom = rospy.Subscriber("/robot/robotnik_base_control/odom", Odometry, callback = self.odomCallback ,queue_size=1)
         # Publish the occupancy map
         self.occupancyMap = rospy.Publisher("/occupancy_map", OccupancyGrid, queue_size=1)
         self.laserData = LaserScan()
@@ -34,9 +34,9 @@ class OccupancyMap:
         # Set the resolution of the occupancy grid
         self.occupancyGrid.info.resolution = 0.2
         # Set the width of the occupancy grid
-        self.occupancyGrid.info.width = int(1000 * self.occupancyGrid.info.resolution)
+        self.occupancyGrid.info.width = int(1000)
         # Set the height of the occupancy grid
-        self.occupancyGrid.info.height = int(1000 * self.occupancyGrid.info.resolution)
+        self.occupancyGrid.info.height = int(1000)
         # make the origin centered
         # [0.030, -0.032, 0.000]
         # xo, yo, zo = self.tfBuffer.lookup_transform("robot_map", "robot_odom", rospy.Time()).transform.translation
@@ -116,7 +116,6 @@ class OccupancyMap:
                 rospy.loginfo(e)
                 continue
     
-    
         # Map the values of hits and missed to the range [0, 100]
         self.hits = (self.hits - np.min(self.hits)) / (np.max(self.hits) - np.min(self.hits)) * 100 + 1
         self.missed = (self.missed - np.min(self.missed)) / (np.max(self.missed) - np.min(self.missed)) * 100 +1
@@ -130,7 +129,6 @@ class OccupancyMap:
         self.occupancyGrid.data = [x for x in prob if x != 0]
         # Publish the occupancy grid
         self.occupancyMap.publish(self.occupancyGrid)
-        # self.hits[:] = 0
 
         
 
