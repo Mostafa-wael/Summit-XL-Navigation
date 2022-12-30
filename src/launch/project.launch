@@ -13,5 +13,5 @@
 	<param name="range_max" value="30.0"/>
 	</node>
 	<node pkg="sensor" type="combiner.py" name="sensors"></node>
-	<node pkg="mapping" type="map.py" name="occupancy_map"></node>
+	<!-- <node pkg="mapping" type="map.py" name="occupancy_map"></node> -->
 </launch>

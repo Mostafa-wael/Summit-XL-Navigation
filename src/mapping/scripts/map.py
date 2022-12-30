@@ -15,12 +15,9 @@ import numpy as np
 
 class OccupancyMap:
     def __init__(self):
+        # TODO: use /tf to get the position of the robot in the map
         # Subscribe to the sensors topic
         self.sensor = rospy.Subscriber("/sensors", CombinedSensor, callback = self.sensorCallback ,queue_size=1)
-        # # Subscribe to rear laser topic
-        # self.laser = rospy.Subscriber("/scan_multi", LaserScan, callback = self.laserCallback ,queue_size=1)
-        # # Subscribe to odom topic
-        # self.odom = rospy.Subscriber("/robot/robotnik_base_control/odom", Odometry, callback = self.odomCallback ,queue_size=1)
         # Publish the occupancy map
         self.occupancyMap = rospy.Publisher("/occupancy_map", OccupancyGrid, queue_size=1)
         self.laserData = LaserScan()
@@ -51,10 +48,14 @@ class OccupancyMap:
         self.occupancyGrid.data = [-1]* self.occupancyGrid.info.width * self.occupancyGrid.info.height
         self.hits = np.zeros(self.occupancyGrid.info.width * self.occupancyGrid.info.height)
         self.missed = np.ones(self.occupancyGrid.info.width * self.occupancyGrid.info.height)
-    # def laserCallback(self,msg):
-    #     self.laserData = msg
-    # def odomCallback(self,msg):
-    #     self.odomData = msg
+        # save old data
+        self.prevX = self.positionToMap(self.odomData.pose.pose.position.x, self.odomData.pose.pose.position.y)[0]
+        self.prevY = self.positionToMap(self.odomData.pose.pose.position.x, self.odomData.pose.pose.position.y)[1]
+        self.prevTheta = tf.transformations.euler_from_quaternion([
+                self.odomData.pose.pose.orientation.x, self.odomData.pose.pose.orientation.y, 
+                self.odomData.pose.pose.orientation.z, self.odomData.pose.pose.orientation.w])[2]
+        self.prevTime = rospy.Time.now()
+        
     def sensorCallback(self,msg):
         self.laserData = msg.laser
         self.odomData = msg.odom
@@ -75,13 +76,37 @@ class OccupancyMap:
         robotY = y - self.occupancyGrid.info.resolution * self.occupancyGrid.info.height/2
         robotY /= self.occupancyGrid.info.resolution
         return robotX, robotY
+    def getPose(self, knownPose = False):
+        if knownPose:
+            robotX, robotY = self.positionToMap(self.odomData.pose.pose.position.x, self.odomData.pose.pose.position.y)
+            robotOrientation  = tf.transformations.euler_from_quaternion([
+                self.odomData.pose.pose.orientation.x, self.odomData.pose.pose.orientation.y, 
+                self.odomData.pose.pose.orientation.z, self.odomData.pose.pose.orientation.w])[2]
+        else:
+            robotX, robotY = self.positionToMap(self.odomData.pose.pose.position.x, self.odomData.pose.pose.position.y)
+            robotOrientation  = tf.transformations.euler_from_quaternion([
+                self.odomData.pose.pose.orientation.x, self.odomData.pose.pose.orientation.y, 
+                self.odomData.pose.pose.orientation.z, self.odomData.pose.pose.orientation.w])[2]
+
+            vX = self.odomData.twist.twist.linear.x
+            vY = self.odomData.twist.twist.linear.y
+            vTheta = self.odomData.twist.twist.angular.z
+            dt = (rospy.Time.now() - self.prevTime).to_sec()
+            # calc the new position based on the velocity
+            # robotX = self.prevX + vX * dt 
+            # robotY = self.prevY + vY * dt 
+            # robotOrientation = self.prevTheta + vTheta * dt
+            # save the new position
+            self.prevX = robotX
+            self.prevY = robotY
+            self.prevTheta = robotOrientation
+            self.prevTime = rospy.Time.now()
+            # robotX, robotY = self.positionToMap(robotX, robotY)
+        return robotX, robotY, robotOrientation
     def reflection_model(self):
         if self.laserData.ranges == []:
             return
-        # Get robot position
-        robotX, robotY = self.positionToMap(self.odomData.pose.pose.position.x, self.odomData.pose.pose.position.y)
-        robotOrientationQuaternion = self.odomData.pose.pose.orientation
-        _,_,robotOrientation  = tf.transformations.euler_from_quaternion([robotOrientationQuaternion.x, robotOrientationQuaternion.y, robotOrientationQuaternion.z, robotOrientationQuaternion.w])
+        robotX, robotY, robotOrientation = self.getPose()
         # get array of angles from 0 to 360 with step 0.5 degrees
         angles = np.arange(0, 2 * math.pi, 0.5 * math.pi / 180) 
         ranges = list(self.laserData.ranges) # cast self.laserData.ranges to list
@@ -125,7 +150,9 @@ class OccupancyMap:
         # print min and max of hits and missed
         rospy.loginfo("min hits: %f, max hits: %f", np.min(self.hits), np.max(self.hits))  
         rospy.loginfo("min missed: %f, max missed: %f", np.min(self.missed), np.max(self.missed))
-        prob = (self.hits / (self.hits + self.missed)) * 100
+        prob = (self.hits / (self.hits + self.missed)) 
+        # Normalize the values of prob to the range [0, 100]
+        prob = (prob - np.min(prob)) / (np.max(prob) - np.min(prob)) * 100
         prob = prob.astype(int).flatten().tolist()
         # print min and max of prob
         rospy.loginfo("min prob: %f, max prob: %f", np.min(prob), np.max(prob))
@@ -148,4 +175,4 @@ if __name__ == '__main__':
     rospy.spin()
 
 
-# we should subtract the origin of the robot in each step we divide by resolution
+# TODO: we should subtract the origin of the robot in each step we divide by resolution
