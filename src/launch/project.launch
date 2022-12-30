@@ -1,16 +1,17 @@
 
 <launch>
 	<node pkg="ira_laser_tools" name="laserscan_multi_merger" type="laserscan_multi_merger" output="screen">
-	<param name="destination_frame" value="/robot_base_link"/>
+	<param name="destination_frame" value="robot_base_link"/>
 	<param name="cloud_destination_topic" value="/merged_cloud"/>
-	<param name="scan_destination_topic" value="/merged_laser"/>
-	<param name="laserscan_topics" value ="/robot/rear_laser/scan /robot/front_laser/scan" /> 
-	<param name="angle_min" value="-2.3561999797821045"/>
-	<param name="angle_max" value="2.3561999797821045"/>
+	<param name="scan_destination_topic" value="/scan_multi"/>
+	<param name="laserscan_topics" value ="/robot/front_laser/scan /robot/rear_laser/scan" /> <!-- LIST OF THE LASER SCAN TOPICS TO SUBSCRIBE -->
+	<param name="angle_min" value="-3.14159265359"/>
+	<param name="angle_max" value="3.14159265359"/>
 	<param name="angle_increment" value="0.008726666681468487"/>
 	<param name="scan_time" value="0.0"/>
 	<param name="range_min" value="0.10000000149011612"/>
 	<param name="range_max" value="30.0"/>
 	</node>
-	<node pkg="mapping" type="map.py" name="map"></node>
+	<node pkg="sensor" type="combiner.py" name="sensors"></node>
+	<node pkg="mapping" type="map.py" name="occupancy_map"></node>
 </launch>

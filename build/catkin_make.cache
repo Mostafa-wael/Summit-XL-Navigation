@@ -1,2 +1,2 @@
-control:mapping
--DCATKIN_DEVEL_PREFIX=/home/ahmed/catkin_ws/src/CR-Project/devel -DCMAKE_INSTALL_PREFIX=/home/ahmed/catkin_ws/src/CR-Project/install -G Unix Makefiles
+control:ira_laser_tools:mapping:robotnik_msgs:robotnik_sensors:sensor:summit_xl_common/moveit/summit_xl_j2s6s200_moveit_config:summit_xl_common/moveit/summit_xl_j2s6s300_moveit_config:summit_xl_common/moveit/summit_xl_j2s7s300_moveit_config:summit_xl_common/summit_xl_common:summit_xl_common/summit_xl_control:summit_xl_common/summit_xl_description:summit_xl_common/summit_xl_localization:summit_xl_common/summit_xl_navigation:summit_xl_common/summit_xl_pad:summit_xl_common/summit_xl_perception:summit_xl_common/summit_xl_robot_local_control:summit_xl_sim/summit_xl_gazebo:summit_xl_sim/summit_xl_sim:summit_xl_sim/summit_xl_sim_bringup
+-DCATKIN_DEVEL_PREFIX=/home/mostafa/rb/code/devel -DCMAKE_INSTALL_PREFIX=/home/mostafa/rb/code/install -G Unix Makefiles

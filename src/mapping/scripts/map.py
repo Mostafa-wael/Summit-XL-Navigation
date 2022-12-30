@@ -5,6 +5,7 @@ from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Pose, Point, Quaternion
 from nav_msgs.msg import Odometry
+from sensor.msg import CombinedSensor
 import math
 from math import radians
 import tf
@@ -14,13 +15,12 @@ import numpy as np
 
 class OccupancyMap:
     def __init__(self):
-        # get the positionof robot_odom using tf
-        self.tfBuffer = tf2_ros.Buffer()
-        self.listener = tf2_ros.TransformListener(self.tfBuffer)
-        # Subscribe to rear laser topic
-        self.laser = rospy.Subscriber("/scan_multi", LaserScan, callback = self.laserCallback ,queue_size=1)
-        # Subscribe to odom topic
-        self.odom = rospy.Subscriber("/robot/robotnik_base_control/odom", Odometry, callback = self.odomCallback ,queue_size=1)
+        # Subscribe to the sensors topic
+        self.sensor = rospy.Subscriber("/sensors", CombinedSensor, callback = self.sensorCallback ,queue_size=1)
+        # # Subscribe to rear laser topic
+        # self.laser = rospy.Subscriber("/scan_multi", LaserScan, callback = self.laserCallback ,queue_size=1)
+        # # Subscribe to odom topic
+        # self.odom = rospy.Subscriber("/robot/robotnik_base_control/odom", Odometry, callback = self.odomCallback ,queue_size=1)
         # Publish the occupancy map
         self.occupancyMap = rospy.Publisher("/occupancy_map", OccupancyGrid, queue_size=1)
         self.laserData = LaserScan()
@@ -51,10 +51,13 @@ class OccupancyMap:
         self.occupancyGrid.data = [-1]* self.occupancyGrid.info.width * self.occupancyGrid.info.height
         self.hits = np.zeros(self.occupancyGrid.info.width * self.occupancyGrid.info.height)
         self.missed = np.ones(self.occupancyGrid.info.width * self.occupancyGrid.info.height)
-    def laserCallback(self,msg):
-        self.laserData = msg
-    def odomCallback(self,msg):
-        self.odomData = msg
+    # def laserCallback(self,msg):
+    #     self.laserData = msg
+    # def odomCallback(self,msg):
+    #     self.odomData = msg
+    def sensorCallback(self,msg):
+        self.laserData = msg.laser
+        self.odomData = msg.odom
     def isInsideMap(self, x, y):
         w = self.occupancyGrid.info.width/self.occupancyGrid.info.resolution
         h = self.occupancyGrid.info.height/self.occupancyGrid.info.resolution
@@ -143,3 +146,6 @@ if __name__ == '__main__':
         occupancyMap.reflection_model()
         rate.sleep()
     rospy.spin()
+
+
+# we should subtract the origin of the robot in each step we divide by resolution

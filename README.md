@@ -40,3 +40,8 @@ roslaunch ira_laser_tools laserscan_multi_merger.launch
 ```
 ### How to create and add new messgaes
 Follow the instructions in the [ROS wiki](http://wiki.ros.org/ROS/Tutorials/CreatingMsgAndSrv)
+
+### How to launch the project
+``` bash
+roslaunch project.launch 
+```

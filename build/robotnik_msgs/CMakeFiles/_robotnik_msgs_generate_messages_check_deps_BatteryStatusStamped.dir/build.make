@@ -54,7 +54,7 @@ CMAKE_BINARY_DIR = /home/mostafa/rb/code/build
 include robotnik_msgs/CMakeFiles/_robotnik_msgs_generate_messages_check_deps_BatteryStatusStamped.dir/progress.make
 
 robotnik_msgs/CMakeFiles/_robotnik_msgs_generate_messages_check_deps_BatteryStatusStamped:
-	cd /home/mostafa/rb/code/build/robotnik_msgs && ../catkin_generated/env_cached.sh /usr/bin/python3 /opt/ros/noetic/share/genmsg/cmake/../../../lib/genmsg/genmsg_check_deps.py robotnik_msgs /home/mostafa/rb/code/src/robotnik_msgs/msg/BatteryStatusStamped.msg robotnik_msgs/BatteryStatus:std_msgs/Header
+	cd /home/mostafa/rb/code/build/robotnik_msgs && ../catkin_generated/env_cached.sh /usr/bin/python3 /opt/ros/noetic/share/genmsg/cmake/../../../lib/genmsg/genmsg_check_deps.py robotnik_msgs /home/mostafa/rb/code/src/robotnik_msgs/msg/BatteryStatusStamped.msg std_msgs/Header:robotnik_msgs/BatteryStatus
 
 _robotnik_msgs_generate_messages_check_deps_BatteryStatusStamped: robotnik_msgs/CMakeFiles/_robotnik_msgs_generate_messages_check_deps_BatteryStatusStamped
 _robotnik_msgs_generate_messages_check_deps_BatteryStatusStamped: robotnik_msgs/CMakeFiles/_robotnik_msgs_generate_messages_check_deps_BatteryStatusStamped.dir/build.make
