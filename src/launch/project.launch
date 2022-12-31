@@ -13,8 +13,10 @@
 	<param name="range_max" value="30.0"/>
 	</node>
 	<node pkg="sensor" type="combiner.py" name="sensors" output="screen"></node>
+
 	<node pkg="control" type="control.py" name="Controller" output="screen"></node>
-	<node pkg="mapping" type="map.py" name="occupancy_map" output="screen">
+
+	<!-- <node pkg="mapping" type="req3_done.py" name="occupancy_map" output="screen">
 	<param name="knownPose" value="False"/>
-	</node>
+	</node> -->
 </launch>

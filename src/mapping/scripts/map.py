@@ -19,7 +19,7 @@ class OccupancyMap:
         # Subscribe to the sensors topic
         self.sensor = rospy.Subscriber("/sensors", CombinedSensor, callback = self.sensorCallback ,queue_size=1)
         # Publish the occupancy map
-        self.occupancyMap = rospy.Publisher("/occupancy_map", OccupancyGrid, queue_size=1)
+        self.occupancyMapPub = rospy.Publisher("/occupancy_map", OccupancyGrid, queue_size=1)
         # Create a laser scan
         self.laserData = LaserScan()
         # Create an odometry
@@ -55,6 +55,12 @@ class OccupancyMap:
                 self.odomData.pose.pose.orientation.x, self.odomData.pose.pose.orientation.y, 
                 self.odomData.pose.pose.orientation.z, self.odomData.pose.pose.orientation.w])[2]
         self.prevTime = self.odomData.header.stamp
+        # get covariance from odom
+        self.QX = self.odomData.pose.covariance[0]
+        self.QY = self.odomData.pose.covariance[7]
+        self.QTheta = self.odomData.pose.covariance[35]
+        # get array of angles from 0 to 360 with step 0.5 degrees
+        self.angles = np.arange(0, 2 * math.pi, 0.5 * math.pi / 180) 
         
     def sensorCallback(self,msg):
         self.laserData = msg.laser
@@ -72,9 +78,9 @@ class OccupancyMap:
         y = y + r * math.sin(theta)
         return x, y
     def positionToMap(self, x, y):
-        robotX = x - self.occupancyGrid.info.resolution * self.occupancyGrid.info.width/2
+        robotX = x - self.occupancyGrid.info.origin.position.x
         robotX /= self.occupancyGrid.info.resolution 
-        robotY = y - self.occupancyGrid.info.resolution * self.occupancyGrid.info.height/2
+        robotY = y -self.occupancyGrid.info.origin.position.y
         robotY /= self.occupancyGrid.info.resolution
         return robotX, robotY
     def getObserved(self):
@@ -103,14 +109,14 @@ class OccupancyMap:
         pred_robotX, pred_robotY, pred_robotOrientation = self.getPredicted()
         # get the observed position
         obs_robotX, obs_robotY, obs_robotOrientation = self.getObserved()
-        # get covariance from odom
-        covX = self.odomData.pose.covariance[0]
-        covY = self.odomData.pose.covariance[7]
-        covTheta = self.odomData.pose.covariance[35]
+        # calc the covariance
+        pred_covX = self.QX + (pred_robotX - self.prevX)**2
+        pred_covY = self.QY + (pred_robotY - self.prevY)**2
+        pred_covTheta = self.QTheta + (pred_robotOrientation - self.prevTheta)**2
         # get the kalman gain
-        kX = 1 # covX / (covX + self.covX)
-        kY = 1 # covY / (covY + self.covY)
-        kTheta = 1 # covTheta / (covTheta + self.covTheta)
+        kX = 1 # pred_covX / (pred_covX + self.QX)
+        kY = 1 # pred_covY / (pred_covY + self.QY)
+        kTheta = 1 # pred_covTheta / (pred_covTheta + self.QTheta)
         # update the position
         robotX = pred_robotX + kX * (obs_robotX - pred_robotX)
         robotY = pred_robotY + kY * (obs_robotY - pred_robotY)
@@ -121,7 +127,6 @@ class OccupancyMap:
         self.prevTheta = robotOrientation
         self.prevTime = self.odomData.header.stamp
         return robotX, robotY, robotOrientation
-        
     def reflection_model(self):
         if self.laserData.ranges == []:
             return
@@ -129,20 +134,17 @@ class OccupancyMap:
             robotX, robotY, robotOrientation = self.getPoseTrue()
         else:
             robotX, robotY, robotOrientation = self.getPoseKF()
-        # get array of angles from 0 to 360 with step 0.5 degrees
-        angles = np.arange(0, 2 * math.pi, 0.5 * math.pi / 180) 
+        # robotX, robotY, robotOrientation = self.getObserved()
         ranges = list(self.laserData.ranges) # cast self.laserData.ranges to list
         for i in range(len(self.laserData.ranges)):
             if ranges[i] >= self.laserData.range_max or ranges[i] <= self.laserData.range_min: # if the range is out of the laser range
                 continue
             try:
                 distance = ranges[i] / self.occupancyGrid.info.resolution
-                angle = angles[i] + robotOrientation + radians(180)
+                angle = self.angles[i] + robotOrientation + radians(180)
                 endX, endY = self.getRayEnd(robotX, robotY, angle, distance) 
                 index = int(endY) * self.occupancyGrid.info.width + int(endX)
                 self.hits[index] += 1 # increment the hit counter of the end point of the ray
-                # self.missed[index] -= 1 # decrement the missed counter of the end point of the ray
-
                 # calculate the points between the start and end points of the ray
                 dx = (endX - robotX) / distance
                 dy = (endY - robotY) / distance 
@@ -160,7 +162,7 @@ class OccupancyMap:
         prob = (self.hits / (self.hits + self.missed)) 
         prob = prob * 100
         self.occupancyGrid.data = prob.astype(int).flatten().tolist()
-        self.occupancyMap.publish(self.occupancyGrid)
+        self.occupancyMapPub.publish(self.occupancyGrid)
 
         
 if __name__ == '__main__':
@@ -169,6 +171,7 @@ if __name__ == '__main__':
     # get parameters from launch file
     knownPose = rospy.get_param('knownPose', "True")
     knownPose = True if knownPose == "True" else False
+    knownPose = False
     rospy.loginfo('Using mapping with known Poses: {}'.format(knownPose))
     occupancyMap = OccupancyMap(knownPose)
     while not rospy.is_shutdown():
