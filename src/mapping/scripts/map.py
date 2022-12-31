@@ -3,28 +3,30 @@
 import rospy
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import Pose, Point, Quaternion
 from nav_msgs.msg import Odometry
 from sensor.msg import CombinedSensor
 import math
 from math import radians
 import tf
-import tf2_ros
 import numpy as np
 
 
 class OccupancyMap:
-    def __init__(self):
-        # TODO: use /tf to get the position of the robot in the map
+    def __init__(self, knownPose):
+        self.knownPose = knownPose
+        # Create a transform listener
+        self.listener = tf.TransformListener()
         # Subscribe to the sensors topic
         self.sensor = rospy.Subscriber("/sensors", CombinedSensor, callback = self.sensorCallback ,queue_size=1)
         # Publish the occupancy map
         self.occupancyMap = rospy.Publisher("/occupancy_map", OccupancyGrid, queue_size=1)
+        # Create a laser scan
         self.laserData = LaserScan()
-        # Set the initial position of the robot
+        # Create an odometry
         self.odomData = Odometry()
         # Create an occupancy grid
         self.occupancyGrid = OccupancyGrid()
+        # Set the header of the occupancy grid
         self.occupancyGrid.header.stamp = rospy.Time.now()
         # Set the header of the occupancy grid
         self.occupancyGrid.header.frame_id = "robot_map"
@@ -35,8 +37,6 @@ class OccupancyMap:
         # Set the height of the occupancy grid
         self.occupancyGrid.info.height = int(1000)
         # make the origin centered
-        # [0.030, -0.032, 0.000]
-        # xo, yo, zo = self.tfBuffer.lookup_transform("robot_map", "robot_odom", rospy.Time()).transform.translation
         self.occupancyGrid.info.origin.position.x = 0.03 - self.occupancyGrid.info.resolution * self.occupancyGrid.info.width/2
         self.occupancyGrid.info.origin.position.y = -0.032 - self.occupancyGrid.info.resolution * self.occupancyGrid.info.height/2
         self.occupancyGrid.info.origin.position.z = 0
@@ -54,7 +54,7 @@ class OccupancyMap:
         self.prevTheta = tf.transformations.euler_from_quaternion([
                 self.odomData.pose.pose.orientation.x, self.odomData.pose.pose.orientation.y, 
                 self.odomData.pose.pose.orientation.z, self.odomData.pose.pose.orientation.w])[2]
-        self.prevTime = rospy.Time.now()
+        self.prevTime = self.odomData.header.stamp
         
     def sensorCallback(self,msg):
         self.laserData = msg.laser
@@ -88,15 +88,15 @@ class OccupancyMap:
         vY = self.odomData.twist.twist.linear.y / self.occupancyGrid.info.resolution
         vTheta = self.odomData.twist.twist.angular.z 
         dt = (self.odomData.header.stamp - self.prevTime).to_sec()
-        # print the previous data
-        # rospy.loginfo("prevX: %f, prevY: %f, prevTheta: %f", self.prevX, self.prevY, self.prevTheta)
-        # rospy.loginfo("vX: %f, vY: %f, vTheta: %f", vX, vY, vTheta)
-        # rospy.loginfo("dt: %f", dt)
         # calc the new position based on the velocity
         robotOrientation = self.prevTheta + vTheta * dt
-        avgTheta = ((self.prevTheta + robotOrientation)/2) % (2*math.pi)
-        robotX = self.prevX + vX * dt * math.cos(avgTheta) - vY * dt * math.sin(avgTheta)
-        robotY = self.prevY + vX * dt * math.sin(avgTheta) + vY * dt * math.cos(avgTheta)
+        robotX = self.prevX + vX * dt * math.cos(robotOrientation) - vY * dt * math.sin(robotOrientation)
+        robotY = self.prevY + vX * dt * math.sin(robotOrientation) + vY * dt * math.cos(robotOrientation)
+        return robotX, robotY, robotOrientation
+    def getPoseTrue(self):
+        (x, y, z),(qx, qy, qz, qw) = self.listener.lookupTransform("robot_map", "robot_base_link", rospy.Time(0))
+        robotX, robotY = self.positionToMap(x, y)
+        robotOrientation  = tf.transformations.euler_from_quaternion([qx, qy, qz, qw])[2]
         return robotX, robotY, robotOrientation
     def getPoseKF(self):
         # get the predicted position
@@ -108,9 +108,9 @@ class OccupancyMap:
         covY = self.odomData.pose.covariance[7]
         covTheta = self.odomData.pose.covariance[35]
         # get the kalman gain
-        kX = covX / (covX + self.covX)
-        kY = covY / (covY + self.covY)
-        kTheta = covTheta / (covTheta + self.covTheta)
+        kX = 1 # covX / (covX + self.covX)
+        kY = 1 # covY / (covY + self.covY)
+        kTheta = 1 # covTheta / (covTheta + self.covTheta)
         # update the position
         robotX = pred_robotX + kX * (obs_robotX - pred_robotX)
         robotY = pred_robotY + kY * (obs_robotY - pred_robotY)
@@ -121,33 +121,28 @@ class OccupancyMap:
         self.prevTheta = robotOrientation
         self.prevTime = self.odomData.header.stamp
         return robotX, robotY, robotOrientation
+        
     def reflection_model(self):
         if self.laserData.ranges == []:
             return
-        robotX, robotY, robotOrientation = self.getPoseKF()
+        if self.knownPose == True:
+            robotX, robotY, robotOrientation = self.getPoseTrue()
+        else:
+            robotX, robotY, robotOrientation = self.getPoseKF()
         # get array of angles from 0 to 360 with step 0.5 degrees
         angles = np.arange(0, 2 * math.pi, 0.5 * math.pi / 180) 
         ranges = list(self.laserData.ranges) # cast self.laserData.ranges to list
         for i in range(len(self.laserData.ranges)):
-            if ranges[i] >=30 or ranges[i] <= 0.08: # if the range is out of the laser range
+            if ranges[i] >= self.laserData.range_max or ranges[i] <= self.laserData.range_min: # if the range is out of the laser range
                 continue
             try:
                 distance = ranges[i] / self.occupancyGrid.info.resolution
                 angle = angles[i] + robotOrientation + radians(180)
-                # rospy.loginfo("angle: %f", rospy.rostime.Time().now().to_sec())
                 endX, endY = self.getRayEnd(robotX, robotY, angle, distance) 
-                # rospy.loginfo("endX: %f, endY: %f", endX, endY)
-                # if self.isInsideMap(endX, endY):
-                #     rospy.loginfo("not inside map")
-                #     continue
                 index = int(endY) * self.occupancyGrid.info.width + int(endX)
-                # check if index is inside the map
-                # if abs(index) >= len(self.occupancyGrid.data):
-                #     rospy.loginfo(index)
-                #     continue
                 self.hits[index] += 1 # increment the hit counter of the end point of the ray
-                
                 # self.missed[index] -= 1 # decrement the missed counter of the end point of the ray
+
                 # calculate the points between the start and end points of the ray
                 dx = (endX - robotX) / distance
                 dy = (endY - robotY) / distance 
@@ -158,39 +153,24 @@ class OccupancyMap:
                 ys = ys[:minLen]
                 # increment the missed counter of the points between the start and end points of the ray
                 self.missed[ys * self.occupancyGrid.info.width + xs] += 1
-                # self.missed[ys * self.occupancyGrid.info.width + xs] = np.clip(self.missed[ys * self.occupancyGrid.info.width + xs], 1, 100)
             except Exception as e:
                 rospy.loginfo(e)
                 continue
     
-        # # Map the values of hits and missed to the range [0, 100]
-        # self.missed[self.missed > 100] = 100
-        # self.hits[self.hits > 100] = 100
-        # self.hits = (self.hits - np.min(self.hits)) / (np.max(self.hits) - np.min(self.hits)) * 100 + 1
-        # self.missed = (self.missed - np.min(self.missed)) / (np.max(self.missed) - np.min(self.missed)) * 100 +1
-        # print min and max of hits and missed
-        # rospy.loginfo("avg hits: %f, max hits: %f", np.average(self.hits), np.max(self.hits))  
-        # rospy.loginfo("avg missed: %f, max missed: %f", np.average(self.missed), np.max(self.missed))
         prob = (self.hits / (self.hits + self.missed)) 
-        # Normalize the values of prob to the range [0, 100]
-        #prob = (prob - np.min(prob)) / (np.max(prob) - np.min(prob)) * 100
         prob = prob * 100
-        prob = prob.astype(int).flatten().tolist()
-        # print min and max of prob
-        # rospy.loginfo("min prob: %f, max prob: %f", np.min(prob), np.max(prob))
-        self.occupancyGrid.data = prob
-        # Publish the occupancy grid
+        self.occupancyGrid.data = prob.astype(int).flatten().tolist()
         self.occupancyMap.publish(self.occupancyGrid)
 
         
-
-        
-
 if __name__ == '__main__':
     rospy.init_node('occupancy_map')
-    rospy.loginfo('Occupancy map node started')
     rate = rospy.Rate(2)
-    occupancyMap = OccupancyMap()
+    # get parameters from launch file
+    knownPose = rospy.get_param('knownPose', "True")
+    knownPose = True if knownPose == "True" else False
+    rospy.loginfo('Using mapping with known Poses: {}'.format(knownPose))
+    occupancyMap = OccupancyMap(knownPose)
     while not rospy.is_shutdown():
         occupancyMap.reflection_model()
         rate.sleep()
