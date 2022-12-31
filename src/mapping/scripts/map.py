@@ -114,9 +114,9 @@ class OccupancyMap:
         pred_covY = self.QY + (pred_robotY - self.prevY)**2
         pred_covTheta = self.QTheta + (pred_robotOrientation - self.prevTheta)**2
         # get the kalman gain
-        kX = 1 # pred_covX / (pred_covX + self.QX)
-        kY = 1 # pred_covY / (pred_covY + self.QY)
-        kTheta = 1 # pred_covTheta / (pred_covTheta + self.QTheta)
+        kX = 0.8 # pred_covX / (pred_covX + self.QX)
+        kY = 0.8 # pred_covY / (pred_covY + self.QY)
+        kTheta = 0.8 # pred_covTheta / (pred_covTheta + self.QTheta)
         # update the position
         robotX = pred_robotX + kX * (obs_robotX - pred_robotX)
         robotY = pred_robotY + kY * (obs_robotY - pred_robotY)
