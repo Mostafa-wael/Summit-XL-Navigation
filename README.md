@@ -97,7 +97,6 @@ We have used linear equations to calculate the robot's pose, so we didn't have t
 4. Mostafa Wael: 228 -> Req 2, 3, 4 -->
 
 
-
 ## Developer Guide (How to ...?)
 ### How to launch Gazebo + rViz
 ``` bash
