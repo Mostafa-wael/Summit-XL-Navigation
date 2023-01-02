@@ -93,7 +93,6 @@ We have used linear equations to calculate the robot's pose, so we didn't have t
 
 
 
-
 ## Developer Guide (How to ...?)
 ### How to launch Gazebo + rViz
 ``` bash
