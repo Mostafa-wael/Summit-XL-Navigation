@@ -109,7 +109,7 @@ rostopic list | grep cmd_vel
 Note: that you should be running the simulator since that's what publishes to
 the topic.
 
-### How to Control robot movement
+### How to Control robot movement 
 ``` bash
 rosrun teleop_twist_keyboard teleop_twist_keyboard.py /cmd_vel:=/robot/robotnik_base_control/cmd_vel
 ```
