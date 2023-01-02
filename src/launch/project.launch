@@ -16,7 +16,9 @@
 
 	<node pkg="control" type="control.py" name="Controller" output="screen"></node>
 
-	<!-- <node pkg="mapping" type="req3_done.py" name="occupancy_map" output="screen">
+	<!-- <node pkg="mapping" type="slam.py" name="occupancy_map" output="screen">
 	<param name="knownPose" value="False"/>
 	</node> -->
+	<node pkg="mapping" type="map_kown.py" name="occupancy_map" output="screen">
+	</node>
 </launch>

@@ -179,4 +179,3 @@ if __name__ == '__main__':
     rospy.spin()
 
 
-# TODO: we should subtract the origin of the robot in each step we divide by resolution
