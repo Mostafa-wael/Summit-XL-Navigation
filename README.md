@@ -44,19 +44,19 @@ We can ignore the $V_y$ term as it is always 0.
 
 Prediction step:
 
-$x_t` = x_{t-1} + \Delta t * Vmap_x$
+$x_t' = x_{t-1} + \Delta t * Vmap_x$
 
-$y_t` = y_{t-1} + \Delta t * Vmap_y$
+$y_t' = y_{t-1} + \Delta t * Vmap_y$
 
-$\theta_t` = \theta_{t-1} + \Delta t * V_\theta$
+$\theta_t' = \theta_{t-1} + \Delta t * V_\theta$
 
 Correction step:
 
-$x_t = x_t` + K * (z_x - H * x_t`)$
+$x_t = x_t' + K * (z_x - H * x_t')$
 
-$y_t = y_t` + K * (z_y - H * y_t`)$
+$y_t = y_t' + K * (z_y - H * y_t')$
 
-$\theta_t = \theta_t` + K * (z_\theta - H * \theta_t`)$
+$\theta_t = \theta_t' + K * (z_\theta - H * \theta_t')$
 
 Where $K$ is the Kalman gain, $z$ is the laser scanner reading, $H$ is the measurement matrix which is a scaler equals to 1 and $pose$ is the robot's pose.
 
@@ -90,7 +90,11 @@ We have used linear equations to calculate the robot's pose, so we didn't have t
 ![Mapping the environment using unknown poses](./slam.png)
 
 
-
+<!-- ## Contributors
+1. Ahmed Ihab, 102 -> Req 1, 3
+2. Ahmed Waleed, 113 -> Req 3, 4
+3. Mohamed Salama: 215 -> Req 3, 4
+4. Mostafa Wael: 228 -> Req 2, 3, 4 -->
 
 
 
@@ -135,4 +139,4 @@ touch sensor/scripts/sensor.py
 roslaunch ira_laser_tools laserscan_multi_merger.launch
 ```
 ### How to create and add new messgaes
-Follow the instructions in the [ROS wiki](http://wiki.ros.org/ROS/Tutorials/CreatingMsgAndSrv)
+Follow the instructions in the [ROS wiki](http://wiki.ros.org/ROS/Tutorials/CreatingMsgAndSrv) 
